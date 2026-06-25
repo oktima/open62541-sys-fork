@@ -61,11 +61,15 @@ include = [
 bindgen = { version = "0.72.1" }
 cc = "1.2.56"
 cmake = "0.1.57"
+regex = "1"
 version_check = "0.9.5"
 
 [features]
 default = []
 mbedtls = []
+# Force a freestanding build (`UA_ARCHITECTURE=none`), omitting the platform networking/threading
+# layer. Without this feature the platform default is used (`win32` on Windows, `posix` elsewhere).
+arch-none = []
 
 [lints.rust]
 future_incompatible = { level = "warn", priority = -1 }

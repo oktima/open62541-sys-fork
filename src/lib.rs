@@ -5,6 +5,7 @@
 //! [`open62541`]: https://crates.io/crates/open62541
 
 mod bindings;
+pub mod status_codes;
 
 use core::ffi;
 

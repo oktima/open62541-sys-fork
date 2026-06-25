@@ -10,8 +10,6 @@
 #include <open62541/plugin/accesscontrol_default.h>
 #include <open62541/plugin/log.h>
 #include <open62541/plugin/log_stdout.h>
-#include <open62541/plugin/pki.h>
-#include <open62541/plugin/pki_default.h>
 #include <open62541/plugin/securitypolicy.h>
 
 // Include files that are only available (by CMake) with certain flags.
