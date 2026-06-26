@@ -160,6 +160,7 @@ dependencies = [
  "bindgen",
  "cc",
  "cmake",
+ "regex",
  "version_check",
 ]
 
