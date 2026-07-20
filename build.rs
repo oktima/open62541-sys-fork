@@ -251,6 +251,11 @@ fn prepare_openssl() -> EncryptionDst {
 fn build_open62541(src: PathBuf, encryption: Option<&EncryptionDst>) -> PathBuf {
     // Build bundled copy of `open62541` with CMake.
     let mut cmake = cmake::Config::new(src);
+
+    if cfg!(windows) {
+        cmake.generator("Ninja");
+    }
+
     cmake
         // Use explicit paths here to avoid generating files where we do not expect them below.
         .define("CMAKE_INSTALL_INCLUDEDIR", CMAKE_INCLUDE)
@@ -263,6 +268,57 @@ fn build_open62541(src: PathBuf, encryption: Option<&EncryptionDst>) -> PathBuf 
         // happen when the tool `nodeset_compiler` is called. When we package a crate, builds should
         // never modify files outside of `OUT_DIR`, so we disable the cache to prevent this.
         .env("PYTHONDONTWRITEBYTECODE", "1");
+
+    let target = std::env::var("TARGET")
+        .expect("TARGET environment variable should be set in build scripts");
+    // Bare-metal cross targets: ARM Cortex-M (`*-none-eabi[hf]`: thumbv8m/thumbv7em/
+    // thumbv6m for stm32u5/f7/f4/c0) and Xtensa (`*-none-elf`: esp32s3). All are driven
+    // from the same env the rest of the firmware uses — the compiler prefix from
+    // CROSS_COMPILE and the cpu/fpu flags from TARGET_CFLAGS (folded in via `cc` below).
+    let is_bare_metal_cross = target.contains("none-eabi") || target.contains("none-elf");
+    if is_bare_metal_cross {
+        // No host OS/libc: stop cmake adding host link flags (e.g. -rdynamic on Linux)
+        // and make it probe the compiler by building a static library instead of a full
+        // executable (which needs _exit/_start, absent on bare metal).
+        cmake.define("CMAKE_SYSTEM_NAME", "Generic")
+            .define("CMAKE_TRY_COMPILE_TARGET_TYPE", "STATIC_LIBRARY");
+
+        // Resolve the cross toolchain from CROSS_COMPILE (e.g. "arm-none-eabi",
+        // "xtensa-esp32-elf"); build-configurator always sets it for embedded SoCs.
+        let cross_compile = std::env::var("CROSS_COMPILE")
+            .expect("CROSS_COMPILE must be set for bare-metal cross targets");
+        let cross = cross_compile.trim_end_matches('-');
+        cmake.define("CMAKE_C_COMPILER", format!("{}-gcc", cross))
+            .define("CMAKE_CXX_COMPILER", format!("{}-g++", cross))
+            .define("CMAKE_ASM_COMPILER", format!("{}-gcc", cross))
+            .define("CMAKE_C_COMPILER_ID", "GNU")
+            .define("CMAKE_CXX_COMPILER_ID", "GNU")
+            // Assume the compiler works: skip the whole CMakeTest<LANG>Compiler check
+            // (the "compiler works" test + ABI probe), which we can't run bare-metal.
+            // We already forced COMPILER_ID above, so there is nothing left to detect.
+            .define("CMAKE_C_COMPILER_FORCED", "TRUE")
+            .define("CMAKE_CXX_COMPILER_FORCED", "TRUE")
+            // GCC LTO objects are incompatible with the firmware's lld linker.
+            .define("CMAKE_INTERPROCEDURAL_OPTIMIZATION", "OFF")
+            // Programs (compiler, python, ...) come from the host; libraries, headers
+            // and packages only from the target sysroot, never the host.
+            .define("CMAKE_FIND_ROOT_PATH_MODE_PROGRAM", "NEVER")
+            .define("CMAKE_FIND_ROOT_PATH_MODE_LIBRARY", "ONLY")
+            .define("CMAKE_FIND_ROOT_PATH_MODE_INCLUDE", "ONLY")
+            .define("CMAKE_FIND_ROOT_PATH_MODE_PACKAGE", "ONLY");
+
+        // Source flags from `cc`, not TARGET_CFLAGS directly: for ARM thumb targets cc
+        // derives the ISA (-mthumb, -march=armv8-m.main / armv7e-m / armv6s-m) from the
+        // Rust triple and appends TARGET_CFLAGS (cpu/fpu/float-abi). TARGET_CFLAGS alone
+        // carries only -mtune (scheduling), not the architecture. For Xtensa cc adds no
+        // -march (the esp gcc default is relied on) but still folds in TARGET_CFLAGS
+        // (-mlongcalls). Applied to C/C++/ASM so any standalone .S unit gets the ISA too.
+        let cc = cc::Build::new().get_compiler();
+        for arg in cc.args() {
+            cmake.cflag(arg).cxxflag(arg).asmflag(arg);
+        }
+        cmake.cflag("-ffunction-sections").cflag("-fdata-sections");
+    }
 
     if matches!(env::var("CARGO_CFG_TARGET_ENV"), Ok(env) if env == "musl") {
         let arch = env::var("CARGO_CFG_TARGET_ARCH").expect("should have CARGO_CFG_TARGET_ARCH");
@@ -348,7 +404,12 @@ fn build_open62541(src: PathBuf, encryption: Option<&EncryptionDst>) -> PathBuf 
         .define("UA_ENABLE_HARDENING", "OFF")
         .define("UA_MSVC_FORCE_STATIC_CRT", "OFF")
         .define("UA_MULTITHREADING", "0")
-        .define("UA_NAMESPACE_ZERO", "REDUCED");
+        .define("UA_NAMESPACE_ZERO", "REDUCED")
+        // No stdout on bare metal (no host OS/libc); keep it on everywhere else.
+        .define(
+            "UA_ENABLE_STDOUT_LOGGING",
+            if is_bare_metal_cross { "OFF" } else { "ON" },
+        );
 
     cmake.build()
 }

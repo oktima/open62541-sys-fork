@@ -4,6 +4,8 @@
 //!
 //! [`open62541`]: https://crates.io/crates/open62541
 
+#![no_std]
+
 mod bindings;
 pub mod status_codes;
 
