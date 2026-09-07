@@ -7,6 +7,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `OPEN62541_LOGLEVEL` environment variable to set open62541's compile-time log floor
+  (`UA_LOGLEVEL`: 100 TRACE … 600 FATAL). Defaults to 400 (warning and above), the previous
+  hard-coded value.
+
 ## [0.5.4] - 2026-03-16
 
 ### Fixed
