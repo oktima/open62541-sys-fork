@@ -363,6 +363,21 @@ fn build_open62541(src: PathBuf, encryption: Option<&EncryptionDst>) -> PathBuf 
 
     cmake.define("UA_ENABLE_ENCRYPTION", encryption);
 
+    // Compile-time log floor for open62541 (`UA_LOGLEVEL`): the `UA_LOG_*` macros below it compile
+    // to nothing, so no logger ever sees those messages. Overridable through the environment, e.g.
+    // `OPEN62541_LOGLEVEL=300 cargo build` to get the library's INFO lines; the default keeps
+    // warnings and above, as before. Values follow open62541's own scale.
+    println!("cargo:rerun-if-env-changed=OPEN62541_LOGLEVEL");
+    let log_level = match env::var("OPEN62541_LOGLEVEL") {
+        Ok(level) if !level.is_empty() => match level.trim() {
+            level @ ("100" | "200" | "300" | "400" | "500" | "600") => level.to_owned(),
+            other => panic!(
+                "OPEN62541_LOGLEVEL must be 100 (TRACE), 200 (DEBUG), 300 (INFO), 400 (WARNING), 500 (ERROR) or 600 (FATAL); got {other:?}"
+            ),
+        },
+        _ => "400".to_owned(),
+    };
+
     // Architecture selection. By default we pick the platform's networking/threading layer
     // (`win32` on Windows, `posix` elsewhere). Enabling the `arch-none` feature forces a
     // freestanding build (`none`) that omits the built-in EventLoop, useful when you want to use
@@ -384,7 +399,7 @@ fn build_open62541(src: PathBuf, encryption: Option<&EncryptionDst>) -> PathBuf 
         .define("UA_ENABLE_INLINABLE_EXPORT", "ON")
         .define("UA_ENABLE_TYPEDESCRIPTION", "ON")
         .define("UA_ENABLE_XML_ENCODING", "ON")
-        .define("UA_LOGLEVEL", "400") // Warning and above
+        .define("UA_LOGLEVEL", &log_level) // See `OPEN62541_LOGLEVEL` above; 400 (warning and above) by default.
         // Disable features that are ON by default but not needed.
         .define("UA_ENABLE_DIAGNOSTICS", "OFF")
         .define("UA_ENABLE_SUBSCRIPTIONS", "OFF")
