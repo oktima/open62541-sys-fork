@@ -397,12 +397,12 @@ fn build_open62541(src: PathBuf, encryption: Option<&EncryptionDst>) -> PathBuf 
         .define("UA_ENABLE_DA", "ON")
         .define("UA_ENABLE_DATATYPES_ALL", "ON")
         .define("UA_ENABLE_INLINABLE_EXPORT", "ON")
+        .define("UA_ENABLE_SUBSCRIPTIONS", "ON")
         .define("UA_ENABLE_TYPEDESCRIPTION", "ON")
         .define("UA_ENABLE_XML_ENCODING", "ON")
         .define("UA_LOGLEVEL", &log_level) // See `OPEN62541_LOGLEVEL` above; 400 (warning and above) by default.
         // Disable features that are ON by default but not needed.
         .define("UA_ENABLE_DIAGNOSTICS", "OFF")
-        .define("UA_ENABLE_SUBSCRIPTIONS", "OFF")
         .define("UA_ENABLE_SUBSCRIPTIONS_EVENTS", "OFF")
         .define("UA_ENABLE_HISTORIZING", "OFF")
         .define("UA_ENABLE_DISCOVERY", "OFF")
