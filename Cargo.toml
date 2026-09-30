@@ -56,6 +56,7 @@ include = [
   "open62541/tools/open62541.pc.in",
   "open62541/tools/schema/",
 ]
+links = "open62541"
 
 [build-dependencies]
 bindgen = { version = "0.72.1" }
