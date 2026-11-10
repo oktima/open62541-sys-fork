@@ -29,8 +29,9 @@
 // See https://github.com/rust-lang/rust-bindgen/issues/2426
 extern const void *const RS_UA_EMPTY_ARRAY_SENTINEL;
 
-// Wrapper for `vsnprintf()` with normalized behavior across different platforms
-// such as Microsoft Windows.
+// Wrapper for `vsnprintf()` with the same behavior on every platform: it formats
+// with open62541's own implementation, which understands the `%S`/`%N`/`%Q`
+// extensions used by the library's log messages.
 //
 // Other than the standard `vsnprintf()`, this implementation copies the
 // `va_list` argument before passing it along to allow repeated calls. The

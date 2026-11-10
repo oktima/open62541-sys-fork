@@ -1,53 +1,33 @@
 #include "wrapper.h"
 
-// Wrapper for `vsnprintf()` with normalized behavior across different platforms
-// such as Microsoft Windows.
+// open62541's own `vsnprintf()` (`deps/mp_printf.c`), compiled into the library
+// but declared only in an internal header.
+int mp_vsnprintf(char *s, size_t count, const char *format, va_list arg);
+
+// Wrapper for `vsnprintf()` with the same behavior on every platform.
+//
+// Formats with open62541's `mp_vsnprintf()` instead of the C library's: the
+// library's log messages use its `%S`/`%N`/`%Q` extensions (`UA_String`,
+// `UA_NodeId`, `UA_QualifiedName` passed by value), which a standard
+// `vsnprintf()` misreads. It also keeps freestanding targets from needing a
+// `vsnprintf()` at all.
 //
 // Other than the standard `vsnprintf()`, this function does not consume the
 // passed `va_list` argument! The caller is responsible for calling
 // `vsnprintf_va_end()` on the `va_list` argument eventually.
-#if defined(_MSC_VER) && _MSC_VER < 1900
 int RS_vsnprintf_va_copy(
     char *buffer,
     size_t count,
     const char *format,
     va_list args)
 {
-  // Microsoft does not (always) define a standard-conforming `vsnprintf()`. But
-  // it does define a variant with slightly different behavior. We normalize the
-  // differences as best we can.
-  int result = -1;
-  if (count)
-  {
-    va_list args_copied;
-    va_copy(args_copied, args);
-    result = _vsnprintf_s(buffer, count, _TRUNCATE, format, args_copied);
-  }
-  if (result < 0)
-  {
-    va_list args_copied;
-    va_copy(args_copied, args);
-    result = _vscprintf(format, args_copied);
-  }
-
-  return result;
-}
-#else
-int RS_vsnprintf_va_copy(
-    char *buffer,
-    size_t count,
-    const char *format,
-    va_list args)
-{
-  // Forward to existing standards-compliant function. It may have be defined as
-  // a macro, so we need a wrapper function for bindgen to pick it up anyway.
   va_list args_copied;
   va_copy(args_copied, args);
-  int result = vsnprintf(buffer, count, format, args_copied);
+  int result = mp_vsnprintf(buffer, count, format, args_copied);
+  va_end(args_copied);
 
   return result;
 }
-#endif
 
 void RS_vsnprintf_va_end(va_list args)
 {
