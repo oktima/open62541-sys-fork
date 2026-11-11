@@ -300,8 +300,6 @@ fn build_open62541(src: PathBuf, encryption: Option<&EncryptionDst>) -> PathBuf 
             // We already forced COMPILER_ID above, so there is nothing left to detect.
             .define("CMAKE_C_COMPILER_FORCED", "TRUE")
             .define("CMAKE_CXX_COMPILER_FORCED", "TRUE")
-            // GCC LTO objects are incompatible with the firmware's lld linker.
-            .define("CMAKE_INTERPROCEDURAL_OPTIMIZATION", "OFF")
             // Programs (compiler, python, ...) come from the host; libraries, headers
             // and packages only from the target sysroot, never the host.
             .define("CMAKE_FIND_ROOT_PATH_MODE_PROGRAM", "NEVER")
@@ -332,10 +330,10 @@ fn build_open62541(src: PathBuf, encryption: Option<&EncryptionDst>) -> PathBuf 
             .cflag(format!("-idirafter/usr/include/{arch}-linux-gnu"));
     }
 
-    if matches!(env::var("TARGET"), Ok(env) if env == "x86_64-unknown-linux-gnu") {
-        // Disable LTO for x86_64-unknown-linux-gnu.
+    if matches!(env::var("CARGO_CFG_TARGET_OS"), Ok(os) if os != "windows") {
+        // Disable LTO for gcc compiler.
         //
-        // Rust projects may use different linkers on x86_64-unknown-linux-gnu.
+        // Rust projects may use different linkers on linux and other platforms (such as the LLVM linker).
         // Either BFD or LLD. The latter is the default linker since Rust 1.90.
         // Unfortunately both linkers use incompatible bitcode formats.
         //
